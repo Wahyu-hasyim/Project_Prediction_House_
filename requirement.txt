@@ -1,0 +1,3 @@
+joblib @ file:///Users/builder/cbouss/perseverance-python-buildout/croot/joblib_1728589613021/work
+setuptools==75.8.0
+wheel==0.45.1
