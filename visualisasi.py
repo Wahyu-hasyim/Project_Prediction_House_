@@ -4,21 +4,11 @@ import plotly.express as px
 import joblib
 import cloudpickle
 
-# --- Page Configuration (harus paling atas) ---
-st.set_page_config(
-    page_title="Visualisasi Data dan Model Interaktif",
-    layout="wide"
-)
-
-# --- Caching Functions ---
-@st.cache_data(
-    ttl=3600,
-    show_spinner=False
-)
+# ————————————
+# Caching Functions
+# ————————————
+@st.cache_data(ttl=3600, show_spinner=False)
 def load_data(path: str) -> pd.DataFrame:
-    """
-    Load CSV data dan pastikan kolom Price tersedia.
-    """
     df = pd.read_csv(path)
     if 'Price' not in df.columns:
         if 'Price (in rupees)' in df.columns:
@@ -27,42 +17,38 @@ def load_data(path: str) -> pd.DataFrame:
             raise KeyError("Kolom 'Price' atau 'Price (in rupees)' tidak ditemukan.")
     return df
 
-@st.cache_resource(
-    show_spinner="Memuat model/artifacts..."
-)
+@st.cache_resource(show_spinner="Memuat model/artifacts...")
 def load_artifacts(path: str):
-    """
-    Memuat model/artifacts menggunakan joblib, fallback ke cloudpickle jika diperlukan.
-    """
     try:
         return joblib.load(path)
     except ModuleNotFoundError:
-        # fallback untuk custom class atau versi yang berbeda
         with open(path, 'rb') as f:
             return cloudpickle.load(f)
 
-# --- Main App ---
-def main():
+# ————————————
+# Render Halaman Visualisasi
+# ————————————
+def render_visualisasi():
     st.title("Visualisasi Data dan Model Interaktif")
 
     # Load data
     try:
         df = load_data('house_prices.csv')
     except FileNotFoundError:
-        st.error("Dataset 'house_prices.csv' tidak ditemukan di direktori aplikasi.")
+        st.error("Dataset 'house_prices.csv' tidak ditemukan.")
         return
     except KeyError as e:
         st.error(str(e))
         return
 
     # Load model/artifacts (optional)
-    artifacts = None
     try:
         artifacts = load_artifacts('house_price_rf.pkl')
     except FileNotFoundError:
         st.warning("Model/artifact 'house_price_rf.pkl' tidak ditemukan. Hanya visualisasi yang dijalankan.")
+        artifacts = None
 
-    # Sidebar: Filter dan Input
+    # Sidebar: Filter & Input
     st.sidebar.header("Filter & Pengaturan Grafis")
     min_price, max_price = int(df['Price'].min()), int(df['Price'].max())
     price_range = st.sidebar.slider(
@@ -70,9 +56,9 @@ def main():
         min_value=min_price,
         max_value=max_price,
         value=(min_price, max_price),
-        step=1000000
+        step=1_000_000
     )
-    df_filt = df[(df['Price'] >= price_range[0]) & (df['Price'] <= price_range[1])]
+    df_filt = df.query("@price_range[0] <= Price <= @price_range[1]")
 
     num_cols = df.select_dtypes(include='number').columns.tolist()
     selected_feature = st.sidebar.selectbox(
@@ -80,20 +66,10 @@ def main():
         options=num_cols,
         index=num_cols.index('Price') if 'Price' in num_cols else 0
     )
-    nbins = st.sidebar.slider(
-        "Jumlah bins histogram:",
-        min_value=10,
-        max_value=100,
-        value=50,
-        step=5
-    )
-    selected_corr = st.sidebar.multiselect(
-        "Fitur untuk heatmap korelasi:",
-        options=num_cols,
-        default=num_cols
-    )
+    nbins = st.sidebar.slider("Jumlah bins histogram:", 10, 100, 50, 5)
+    selected_corr = st.sidebar.multiselect("Fitur untuk heatmap korelasi:", options=num_cols, default=num_cols)
 
-    # --- 1. Distribusi ---
+    # 1. Distribusi
     st.subheader(f"1. Distribusi `{selected_feature}`")
     fig_dist = px.histogram(
         df_filt,
@@ -104,7 +80,7 @@ def main():
     )
     st.plotly_chart(fig_dist, use_container_width=True)
 
-    # --- 2. Heatmap Korelasi ---
+    # 2. Heatmap Korelasi
     if len(selected_corr) >= 2:
         st.subheader("2. Heatmap Korelasi Fitur Numerik")
         corr_matrix = df_filt[selected_corr].corr()
@@ -119,5 +95,8 @@ def main():
     else:
         st.info("Pilih minimal 2 fitur untuk menampilkan heatmap korelasi.")
 
+# ————————————
+# Entry Point
+# ————————————
 if __name__ == '__main__':
-    main()
+    render_visualisasi()
