@@ -5,8 +5,9 @@ st.set_page_config(
     page_title="Aplikasi DS",
     page_icon="🚀",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="expanded",
 )
+
 
 # 2) Baru kemudian definisikan pages dan navigasi
 pages = [
